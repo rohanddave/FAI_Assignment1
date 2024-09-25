@@ -71,11 +71,6 @@ YOUR CODE HERE
 
 '''
 
-actions = []
-
-# shapes = [i for i in  range(9)]
-# colors = [i for i in range(4)]
-
 # Objective function helpers
 def calculateConflictPenalty(grid):
     rows = len(grid)
@@ -125,9 +120,70 @@ def calculateObjectiveFunction(grid, shapes):
             lambda4 * getEmptyCellCount(grid))
 
 # Utility functions for getting neighbors 
-def performActions(actions):
-    for action in actions: 
-        execute(action)
+# def performActions(actions):
+#     for action in actions: 
+#         execute(action)
+
+def goToState(currentState, goalState):
+    print('attempting to go to state')
+    # Unpack the goal state
+    goalStateShapePos, goalStateCurrentShapeIndex, goalStateCurrentColorIndex, goalStateGrid, goalStatePlacedShapes, goalStateDone = goalState
+    shapePos, currentShapeIndex, currentColorIndex, grid, placedShapes, done = currentState
+
+    # Get the counts of placed shapes
+    currentPlacedCount = len(placedShapes)
+    goalPlacedCount = len(goalStatePlacedShapes)
+
+    # Determine the index of the first shape that differs
+    i = 0
+    while i < currentPlacedCount and i < goalPlacedCount and placedShapes[i] == goalStatePlacedShapes[i]:
+        i += 1
+
+    # If the goal has fewer shapes, undo the extra shapes
+    while currentPlacedCount > goalPlacedCount:
+        print('executing undo operation')
+        execute('undo')
+        currentPlacedCount -= 1  # Decrement the count of placed shapes
+
+    # Place the remaining shapes in the goal state
+    for j in range(i, goalPlacedCount):
+        shapeIndex, topLeftShapePosition, colorIndex = goalStatePlacedShapes[j]
+        
+        # Switch to the correct color and shape
+        switchToColor(colorIndex)
+        switchToShape(shapeIndex)
+        
+        # Move to the top-left position of the shape
+        moveToCell(topLeftShapePosition[0], topLeftShapePosition[1])  # Ensure correct coordinates
+        
+        # Execute the placement
+        print('executing place operation')
+        execute('place')
+
+    # If the goal state is done, print a confirmation
+    if goalStateDone:
+        print("Goal state achieved.")
+
+# Make sure to test this function with various current and goal states to ensure robustness.
+# Make sure to test this function with various current and goal states to ensure robustness.
+# def goToState(currentState, goalState):
+#     # NOTE: if len(goalStatePlacedStates) < len(placedShapes) then this call is invalid and is not made to handle this case yet
+#     goalStateShapePos, goalStateCurrentShapeIndex, goalStateCurrentColorIndex, goalStateGrid, goalStatePlacedShapes, goalStateDone = goalState
+#     shapePos, currentShapeIndex, currentColorIndex, grid, placedShapes, done = currentState
+
+#     # get most recent placed shape 
+#     i = 0
+#     while True: 
+#         if placedShapes[i] != goalStatePlacedShapes[i]:
+#             break
+#         i += 1
+    
+#     for j in range(i, len(goalStatePlacedShapes)):
+#         shapeIndex, topLeftShapePosition, colorIndex = goalStatePlacedShapes[j]
+#         switchToColor(colorIndex)
+#         switchToShape(shapeIndex)
+#         moveToCell(topLeftShapePosition)
+#         execute('place')
 
 # Random shape selector with probability weights
 # TODO: if cannot place shape then ideally we should reduce the weight of all the ones larger than the one rejected now 
@@ -142,15 +198,16 @@ def switchToColor(goalColorIndex):
         _, _, currentColorIndex, _, _, _ = execute('export')
         if currentColorIndex == goalColorIndex: 
             return 
-        actions.append('switchcolor')
+        # actions.append('switchcolor')
         execute('switchcolor')
 
+# switch to shape in env
 def switchToShape(goalShapeIndex):
     while True:
         _, currentShapeIndex, _, _, _, _ = execute('export')
         if currentShapeIndex == goalShapeIndex: 
             return 
-        actions.append('switchshape')
+        # actions.append('switchshape')
         execute('switchshape')
         
 
@@ -171,17 +228,15 @@ def moveToCell(goalX, goalY):
             return
         if shapePos[0] != goalX:
             vertical_command = 'down' if goalX > shapePos[0] else 'up'
-            actions.append(vertical_command)
+            # actions.append(vertical_command)
             execute(vertical_command)
         if shapePos[1] != goalY:
             horizontal_command = 'right' if goalY > shapePos[1] else 'left'
-            actions.append(horizontal_command)
+            # actions.append(horizontal_command)
             execute(horizontal_command)
 
 def getNeighbors(s):
-    initialStatePos, _, _, grid, _, _ = s 
-    print("get neighbors called with grid")
-    print(grid)
+    initialStatePos, _, _, grid, _, _ = s
     rows = len(grid)
     cols = len(grid[0])
     neighbors = []
@@ -219,7 +274,7 @@ def getNeighbors(s):
                 # if i == maximumTries: 
                 #     continue
                 
-                actions.append('place')
+                # actions.append('place')
 
                 # placing this shape and color in env
                 execute('place')
@@ -227,33 +282,14 @@ def getNeighbors(s):
                 # add neighbor to array with all actions required to reach it from current state
                 neighbor_state = execute('export')
                 shapePos, currentShapeIndex, currentColorIndex, grid, placedShapes, done = neighbor_state
-                neighbor_state_with_meta = ((shapePos.copy(), currentShapeIndex, currentColorIndex, grid.copy(), placedShapes.copy(), done), actions.copy())
-                neighbors.append(neighbor_state_with_meta)
+                neighbors.append((shapePos.copy(), currentShapeIndex, currentColorIndex, grid.copy(), placedShapes.copy(), done))
 
                 # clear actions array for next neighbor
-                actions.clear()
+                # actions.clear()
 
                 # undo action for next neighbor 
                 execute('undo')
 
-                # Try switching shapes only
-                # for _ in range(len(shapes)):
-                #     execute('switchshape')
-                #     execute('place')
-                #     neighbor_state = execute('export')
-                #     print(neighbor_state)
-                #     neighbors.append(neighbor_state)
-                #     execute('undo')  # Undo after placing shape
-
-                # # Try switching colors only
-                # for _ in range(len(colors)):
-                #     execute('switchcolor')
-                #     execute('place')
-                #     neighbor_state = execute('export')
-                #     print(neighbor_state)
-                #     neighbors.append(neighbor_state)
-                #     execute('undo')  # Undo after placing color
-    
     # move brush back to initial position
     moveToCell(initialStatePos[0], initialStatePos[1])
 
@@ -264,8 +300,8 @@ def hillClimbing(s):
     current = s
     while True:
         # Get the current state and calculate its value
-        currentState, currentActions = current
-        _, _, _, grid, placedShapes, currentDone = currentState
+        # currentState, currentActions = current
+        _, _, _, grid, placedShapes, currentDone = current
         current_value = calculateObjectiveFunction(grid, placedShapes)
 
         if currentDone or checkGrid(grid):
@@ -275,14 +311,14 @@ def hillClimbing(s):
         print(current_value)
 
         # Get all neighboring states
-        neighbors = getNeighbors(currentState)              
+        neighbors = getNeighbors(current)   
+        print("get neighbors call completed")           
         best_neighbor = None
         best_value = current_value
 
         # Find the best neighbor
         for neighbor in neighbors:
-            state, _ = neighbor
-            _, _, _, neighbor_grid, neighbor_placed_shapes, done = state
+            _, _, _, neighbor_grid, neighbor_placed_shapes, done = neighbor
 
             if done:
                 return neighbor
@@ -298,21 +334,25 @@ def hillClimbing(s):
         
         print('printing best neighbor')
         print(best_neighbor)
-        if best_neighbor is None:
+        if best_neighbor is None or best_value >= current_value:
+            execute('undo')
             continue
+
+        goToState(best_neighbor, current)
         current = best_neighbor
-        currentState, currentActions = current
+        # currentState, currentActions = current
         # shapePos, currentShapeIndex, currentColorIndex, grid, placedShapes, done = currentState
-        performActions(currentActions)
+        # performActions(currentActions)
+
         print('selected best neighbor')
         print(current)
 
-        if currentState[-1]:
+        if current[-1]:
             print('returning answer')
             return current        
 
 # Run hill climbing starting from the initial state
-hillClimbing((execute('export'), []))
+hillClimbing(execute('export'))
 ########################################
 
 # Do not modify any of the code below. 
