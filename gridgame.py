@@ -258,9 +258,9 @@ def loop_gui():
                         # Adjust position if the shape exceeds the grid boundary
                         shapePos[0] -= (xXented - gridSize)
                         shapePos[1] -= (yXetended - gridSize)
-                    if (yXetended > gridSize):
+                    elif (yXetended > gridSize):
                         shapePos[1] -= (yXetended - gridSize)
-                    if (xXented > gridSize):
+                    elif (xXented > gridSize):
                         shapePos[0] -= (xXented - gridSize)
 
                     print("Current shape", shapesIdxToName[currentShapeIndex])
