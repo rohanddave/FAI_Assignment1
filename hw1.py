@@ -1,7 +1,6 @@
 import time
 import numpy as np
 from gridgame import *
-import copy
 
 ##############################################################################################################################
 
@@ -189,7 +188,7 @@ def getNeighbors(s):
 
     for i in range(rows):
         for j in range(cols):
-            if grid[i][j] != -1:
+            if 0 <= i < len(grid) and 0 <= j < len(grid[0]) and grid[i][j] != -1:
                 # move to position 
                 moveToCell(i, j)
 
@@ -202,21 +201,24 @@ def getNeighbors(s):
                 # move to random shape 
                 switchToShape(randomShapeIndex)
 
-                i = 0
-                maximumTries = 100
-                # find a random shape that can be placed at this position - try this for 100 times maximum and if it still does not find a suitable shape
-                # then it is shape to assume that a shape cannot be placed at this position
-                while not canPlace(grid, shapes[randomShapeIndex], shapePos) and i <= maximumTries:
-                    randomShapeIndex = getRandomShape()
-                    i += 1
+                # switching to random color in env
+                switchToColor(randomColorIndex)
+
+                if not canPlace(grid, shapes[randomShapeIndex], shapePos):
+                    continue
+                # i = 0
+                # maximumTries = 100
+                # # find a random shape that can be placed at this position - try this for 100 times maximum and if it still does not find a suitable shape
+                # # then it is shape to assume that a shape cannot be placed at this position
+                # while not canPlace(grid, shapes[randomShapeIndex], shapePos) and i <= maximumTries:
+                #     randomShapeIndex = getRandomShape()
+                #     i += 1
                 
                 # if it failed to palce a shape in this position then it is safe to assume that this neighbor does not have a valid solution 
                 # hence do not add it to the neighbors to be further explored
-                if i == maximumTries: 
-                    continue
+                # if i == maximumTries: 
+                #     continue
                 
-                # switching to random color in env
-                switchToColor(randomColorIndex)
                 actions.append('place')
 
                 # placing this shape and color in env
