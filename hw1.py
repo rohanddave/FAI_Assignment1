@@ -121,55 +121,13 @@ def calculateObjectiveFunction(grid, shapes):
             lambda4 * getEmptyCellCount(grid))
 
 # Utility functions for getting neighbors 
-def goToState(currentState, goalState):
-    print('attempting to go to state')
-    # Unpack the goal state
-    goalStateShapePos, goalStateCurrentShapeIndex, goalStateCurrentColorIndex, goalStateGrid, goalStatePlacedShapes, goalStateDone = goalState
-    shapePos, currentShapeIndex, currentColorIndex, grid, placedShapes, done = currentState
-
-    # Get the counts of placed shapes
-    currentPlacedCount = len(placedShapes)
-    goalPlacedCount = len(goalStatePlacedShapes)
-
-    # Determine the index of the first shape that differs
-    i = 0
-    while i < currentPlacedCount and i < goalPlacedCount and placedShapes[i] == goalStatePlacedShapes[i]:
-        i += 1
-    
-    print('reached line 139')
-
-    # If the goal has fewer shapes, undo the extra shapes
-    while currentPlacedCount > goalPlacedCount:
-        execute('undo')
-        currentPlacedCount -= 1  # Decrement the count of placed shapes
-
-    print('reached line 146')
-
-    # Place the remaining shapes in the goal state
-    for j in range(i, goalPlacedCount):
-        shapeIndex, topLeftShapePosition, colorIndex = goalStatePlacedShapes[j]
-        
-        # Switch to the correct color and shape
-        switchToColor(colorIndex)
-        switchToShape(shapeIndex)
-        
-        # Move to the top-left position of the shape
-        moveToCell(topLeftShapePosition[0], topLeftShapePosition[1])  # Ensure correct coordinates
-        
-        # Execute the placement
-        print('executing place operation')
-        execute('place')
-
-    # If the goal state is done, print a confirmation
-    if goalStateDone:
-        print("Goal state achieved.")
-
 # Random shape selector with probability weights
 # TODO: if cannot place shape then ideally we should reduce the weight of all the ones larger than the one rejected now 
 def getRandomShape():
-    weights = np.arange(1, len(shapes) + 1)
-    probabilities = weights / weights.sum()
-    return np.random.choice(len(shapes), p=probabilities)
+    return np.random.choice(len(shapes))
+    # weights = np.arange(1, len(shapes) + 1)
+    # probabilities = weights / weights.sum()
+    # return np.random.choice(len(shapes), p=probabilities)
 
 def switchToColor(goalColorIndex):
     print('switch to color called with: ' + str(goalColorIndex))
@@ -220,7 +178,7 @@ def getRandomEmptyPosition(array):
 
 # get neighbors function
 def getRandomNeighbor(s):
-    initialStatePos, _, _, grid, _, _ = s
+    _, _, _, grid, _, _ = s
     
     while True:
         i, j = getRandomEmptyPosition(grid)
@@ -233,7 +191,7 @@ def getRandomNeighbor(s):
         randomColorIndex = getAvailableColor(grid, shapePos[0], shapePos[1])
         randomShapeIndex = getRandomShape()
 
-        # move to random shape 
+        # switch to random shape in env
         switchToShape(randomShapeIndex)
 
         # switching to random color in env
@@ -243,48 +201,9 @@ def getRandomNeighbor(s):
             execute('place')
             return execute('export')
 
-
-    # for i in range(rows):
-    #     for j in range(cols):
-    #         if 0 <= i < len(grid) and 0 <= j < len(grid[0]) and grid[i][j] != -1:
-    #             # move to position 
-    #             moveToCell(i, j)
-
-    #             # get current grid and bursh position
-    #             shapePos, _, _, grid, _, _ = execute('export')
-
-    #             randomColorIndex = getAvailableColor(grid, shapePos[0], shapePos[1])
-    #             randomShapeIndex = getRandomShape()
-
-    #             # move to random shape 
-    #             switchToShape(randomShapeIndex)
-
-    #             # switching to random color in env
-    #             switchToColor(randomColorIndex)
-
-    #             if not canPlace(grid, shapes[randomShapeIndex], shapePos):
-    #                 continue
-
-    #             # placing this shape and color in env
-    #             execute('place')
-
-    #             # add neighbor to array with all actions required to reach it from current state
-    #             neighbor_state = execute('export')
-    #             shapePos, currentShapeIndex, currentColorIndex, grid, placedShapes, done = neighbor_state
-    #             neighbors.append((shapePos.copy(), currentShapeIndex, currentColorIndex, grid.copy(), placedShapes.copy(), done))
-
-    #             # undo action for next neighbor 
-    #             execute('undo')
-
-    # move brush back to initial position
-    # moveToCell(initialStatePos[0], initialStatePos[1])
-
-    # return neighbors
-
 # hill climbing algorithm
 def hillClimbing(s):
     current = s
-    # state_history = []  # Stack to keep track of visited states
 
     while True:
         # Get the current state and calculate its value
@@ -296,68 +215,21 @@ def hillClimbing(s):
         
         neighbor = getRandomNeighbor(current)
         _, _, _, neighbor_grid, neighbor_placed_shapes, done = neighbor
+
+        if done: 
+            return neighbor
+        
         neighbor_value = calculateObjectiveFunction(neighbor_grid, neighbor_placed_shapes)
 
         if neighbor_value < current_value:
             current = neighbor
         else:
             execute('undo')
-            current = execute('export')
-
-        # print('objective function value')
-        # print(current_value)
-
-        # Get all neighboring states
-        # neighbors = getNeighbors(current)   
-        # print("get neighbors call completed")           
-        # best_neighbor = None
-        # best_value = current_value
-
-        # # Find the best neighbor
-        # for neighbor in neighbors:
-        #     _, _, _, neighbor_grid, neighbor_placed_shapes, done = neighbor
-
-        #     if done:
-        #         return neighbor
-            
-        #     neighbor_value = calculateObjectiveFunction(neighbor_grid, neighbor_placed_shapes)
-            
-        #     if neighbor_value < best_value:  # Minimize objective function
-        #         best_neighbor = neighbor
-        #         best_value = neighbor_value
-            
-        #     print('after minimizing objective function: ' + str(best_value))
-
-        # # Check if there are no improvements
-        # if best_neighbor is None or best_value >= current_value:
-        #     print("No better neighbor found; backtracking.")
-        #     # Backtrack to the previous state
-        #     execute('undo')
-        #     current = execute('export')
-        # else:
-        #     # Move to the best neighbor and record the current state
-        #     goToState(best_neighbor, current)
-        #     current = best_neighbor
-
-        #     if current[-1]:
-        #         print('returning answer')
-        #         return current  # Return the final state when done
-
-        # print('printing best neighbor')
-        # print(best_neighbor)
-        # if best_neighbor is None or best_value >= current_value:
-        #     execute('undo')
-        #     continue
-
-        # goToState(best_neighbor, current)
-        # current = best_neighbor
-
-        # if current[-1]:
-        #     print('returning answer')
-        #     return current        
+            current = execute('export')  
 
 # Run hill climbing starting from the initial state
 hillClimbing(execute('export'))
+
 ########################################
 
 # Do not modify any of the code below. 
