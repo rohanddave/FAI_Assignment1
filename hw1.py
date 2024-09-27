@@ -13,7 +13,8 @@ from gridgame import *
 
 ##############################################################################################################################
 
-setup(GUI = True, render_delay_sec = 0.001, gs = 10)
+gridSize = 5
+setup(GUI = True, render_delay_sec = 0.001, gs = gridSize)
 
 
 ##############################################################################################################################
@@ -114,7 +115,7 @@ def getEmptyCellCount(grid):
 # objective function
 def calculateObjectiveFunction(grid, shapes):
     # Coefficients for penalties (adjust if needed)
-    lambda1, lambda2, lambda3, lambda4 = 3, 2, 2, 5
+    lambda1, lambda2, lambda3, lambda4 = 50, 8, 2, 1000
     return (lambda1 * calculateConflictPenalty(grid) +
             lambda2 * calculateDistinctColors(grid) +
             lambda3 * len(shapes) + 
@@ -122,75 +123,136 @@ def calculateObjectiveFunction(grid, shapes):
 
 # Utility functions for getting neighbors 
 # Random shape selector with probability weights
-# TODO: if cannot place shape then ideally we should reduce the weight of all the ones larger than the one rejected now 
 def getRandomShape():
-    return np.random.choice(len(shapes))
-    # weights = np.arange(1, len(shapes) + 1)
-    # probabilities = weights / weights.sum()
-    # return np.random.choice(len(shapes), p=probabilities)
+    """
+    Distributes probability more towards the last elements when there are more empty cells,
+    and shifts the probability towards the starting elements as the number of empty cells decreases.
+    
+    :param elements: A list of elements to choose from.
+    :param emptyCells: The current number of empty cells remaining.
+    :return: A randomly chosen element with skewed probability.
+    """
+    elements = [i for i in range(len(shapes))]
+
+    _, _, _, grid, _, _ = execute('export')
+    emptyCells = getEmptyCellCount(grid)
+    # Total number of elements
+    n = len(elements)
+    
+    # Calculate the ratio of empty cells to total elements
+    empty_ratio = emptyCells / pow(len(grid), 2)
+    print("empty ratio" + str(empty_ratio))
+    
+    # Skew factor: bias towards later elements when empty_ratio is high, and earlier elements when low
+    weights = [(empty_ratio ** i) if empty_ratio > 0.5 else ((1 - empty_ratio) ** i) for i in range(n)]
+    
+    # Normalize the weights to sum to 1 (to form a valid probability distribution)
+    total_weight = sum(weights)
+    probabilities = [w / total_weight for w in weights]
+    print('probabilities')
+    print(probabilities)
+    
+    # Select an element based on the weighted probabilities
+    chosen_element = random.choices(elements, probabilities)[0]
+    
+    return chosen_element
+
+# def getRandomShape():
+#     return np.random.choice(len(shapes))
+#     # weights = np.arange(1, len(shapes) + 1)
+#     # probabilities = weights / weights.sum()
+#     # return np.random.choice(len(shapes), p=probabilities)
 
 def switchToColor(goalColorIndex):
-    print('switch to color called with: ' + str(goalColorIndex))
+    # print('switch to color called with: ' + str(goalColorIndex))
     # NOTE: this has no check if the index is bounded hence can be an infinite loop
     while True:
         _, _, currentColorIndex, _, _, _ = execute('export')
         if currentColorIndex == goalColorIndex: 
+            print('reached goal color') 
             return 
         execute('switchcolor')
-    print('reached goal color')
 
 # switch to shape in env
 def switchToShape(goalShapeIndex):
-    print('switch to shape called with: ' + str(goalShapeIndex))
+    # print('switch to shape called with: ' + str(goalShapeIndex))
     while True:
         _, currentShapeIndex, _, _, _, _ = execute('export')
         if currentShapeIndex == goalShapeIndex: 
+            print('reached goal shape')
             return 
         execute('switchshape')
-    print('reached goal shape')
 
 # Move to a specific cell in the grid
 def moveToCell(goalX, goalY):
-    shapePos, _, _, _, _, _ = execute('export')
-    if shapePos[0] == goalX and shapePos[1] == goalY:
-        return
+    # print("Attempting to move to: " + str((goalX, goalY)))
     
-    hasReachedX = shapePos[0] != goalX
-    hasReachedY = shapePos[1] != goalY
-    while not hasReachedX or not hasReachedY:
+    # Ensure goal is within grid bounds
+    if not (0 <= goalX < gridSize and 0 <= goalY < gridSize):
+        print("Error: Goal is outside the grid boundaries.")
+        return
+
+    while True:
         shapePos, _, _, _, _, _ = execute('export')
-        hasReachedX = shapePos[0] != goalX
-        hasReachedY = shapePos[1] != goalY
+        # print("Current position: " + str(shapePos))
+
         # If we're already at the target position, stop
         if shapePos[0] == goalX and shapePos[1] == goalY:
+            # print('Moved to x: ' + str(goalX) + '\t y: ' + str(goalY))
             return
-        if shapePos[0] != goalX:
-            vertical_command = 'down' if goalX > shapePos[0] else 'up'
-            execute(vertical_command)
-        if shapePos[1] != goalY:
-            horizontal_command = 'right' if goalY > shapePos[1] else 'left'
-            execute(horizontal_command)
 
-def getRandomEmptyPosition(array):
-    indices = [(i, j) for i in range(len(array)) for j in range(len(array[i])) if array[i][j] == -1]
+        # Track position before moving to avoid getting stuck
+        prevPos = shapePos
+        
+        # Move along the X axis
+        if goalX > shapePos[0]:
+            execute('down')
+        elif goalX < shapePos[0]:
+            execute('up')
+        
+        # Move along the Y axis
+        if goalY > shapePos[1]:
+            execute('right')
+        elif goalY < shapePos[1]:
+            execute('left')
+        
+        # Re-fetch position after move to ensure the shape actually moved
+        shapePos, _, _, _, _, _ = execute('export')
+        
+        # If the shape didn't move, avoid infinite loops
+        if shapePos == prevPos:
+            print("Warning: No movement detected. Stopping.")
+            return
+
+def getRandomEmptyPosition():
+    _, _, _, grid, _, _ = execute('export')
+
+    # Find all empty cell indices
+    indices = [(i, j) for i in range(grid.shape[0]) for j in range(grid.shape[1]) if grid[i, j] == -1]
+
+    # Check if there are any empty positions available
+    if not indices:
+        return None  # Return None if there are no empty cells
+    
     # Randomly select one of the indices
     return random.choice(indices)
 
 # get neighbors function
 def getRandomNeighbor(s):
-    _, _, _, grid, _, _ = s
-    
     while True:
-        i, j = getRandomEmptyPosition(grid)
+        i, j = getRandomEmptyPosition()
+        # print('got random position')
         # move to position 
         moveToCell(i, j)
 
         # get current grid and bursh position
         shapePos, _, _, grid, _, _ = execute('export')
+        # print('got current state')
 
         randomColorIndex = getAvailableColor(grid, shapePos[0], shapePos[1])
         randomShapeIndex = getRandomShape()
-
+        # print('random color: ' + str(randomColorIndex))
+        # print('random shape index: ' + str(randomShapeIndex))
         # switch to random shape in env
         switchToShape(randomShapeIndex)
 
@@ -200,6 +262,42 @@ def getRandomNeighbor(s):
         if canPlace(grid, shapes[randomShapeIndex], shapePos):
             execute('place')
             return execute('export')
+        else:
+            print('cannot place this neighbor')
+# def getRandomNeighbor(s):
+#     _, _, _, grid, _, _ = s
+#     attempts = 0 
+#     maxAttempts = 100
+    
+#     while attempts <= maxAttempts:
+#         print('while loop start for attemp number: ' + str(attempts))
+#         i, j = getRandomEmptyPosition(grid)
+#         print('got random position')
+#         # move to position 
+#         moveToCell(i, j)
+
+#         # get current grid and bursh position
+#         shapePos, _, _, grid, _, _ = execute('export')
+#         print('got current state')
+
+#         randomColorIndex = getAvailableColor(grid, shapePos[0], shapePos[1])
+#         randomShapeIndex = getRandomShape()
+#         print('random color: ' + str(randomColorIndex))
+#         print('random shape index: ' + str(randomShapeIndex))
+#         # switch to random shape in env
+#         switchToShape(randomShapeIndex)
+
+#         # switching to random color in env
+#         switchToColor(randomColorIndex)
+
+#         if canPlace(grid, shapes[randomShapeIndex], shapePos):
+#             execute('place')
+#             return execute('export')
+#         else:
+#             print('cannot place this neighbor')
+#         attempts += 1
+#     print("could not find a neighbor")
+            
 
 # hill climbing algorithm
 def hillClimbing(s):
@@ -213,22 +311,81 @@ def hillClimbing(s):
         if currentDone or checkGrid(grid):
             return current
         
+        # print("trying to get a random neighbor")
         neighbor = getRandomNeighbor(current)
+        # print('got a random neighbor')
         _, _, _, neighbor_grid, neighbor_placed_shapes, done = neighbor
 
-        if done: 
+        if done or checkGrid(neighbor_grid): 
+            print('neighbor is solution')
             return neighbor
         
         neighbor_value = calculateObjectiveFunction(neighbor_grid, neighbor_placed_shapes)
 
         if neighbor_value < current_value:
+            print('neighbor improves objective function: accept as solution')
             current = neighbor
         else:
+            print('neighbor worsens objective function: backtrack')
             execute('undo')
             current = execute('export')  
 
+# def hillClimbingWithRestarts(s, max_restarts=10, max_no_improve=100):
+#     current = s
+#     restart_count = 0
+#     no_improvement = 0
+
+#     while restart_count < max_restarts:
+#         # Get the current state and calculate its value
+#         _, _, _, grid, placedShapes, currentDone = current
+#         current_value = calculateObjectiveFunction(grid, placedShapes)
+
+#         if currentDone or checkGrid(grid):
+#             return current
+        
+#         print("trying to get a random neighbor")
+#         neighbor = getRandomNeighbor(current)
+#         print('got a random neighbor')
+#         _, _, _, neighbor_grid, neighbor_placed_shapes, done = neighbor
+
+#         if done or checkGrid(neighbor_grid): 
+#             print('neighbor is solution')
+#             return neighbor
+        
+#         neighbor_value = calculateObjectiveFunction(neighbor_grid, neighbor_placed_shapes)
+
+#         if neighbor_value < current_value:
+#             print('neighbor improves objective function: accept as solution')
+#             current = neighbor
+#             no_improvement = 0  # Reset no improvement counter
+#         else:
+#             print('neighbor worsens objective function: backtrack')
+#             execute('undo')
+#             current = execute('export')
+#             no_improvement += 1
+
+#         # If no improvement for too long, restart the algorithm
+#         if no_improvement >= max_no_improve:
+#             print(f'Restarting after {no_improvement} iterations without improvement.')
+#             current = randomRestart()  # Restart with a new random state
+#             no_improvement = 0
+#             restart_count += 1
+
+#     return current
+
+# def randomRestart():
+#     # Restart with a random valid initial state
+#     print("Random restart triggered!")
+#     # Execute the initial state or reset parts of the grid as needed
+#     execute('reset')
+#     return execute('export')
+
+# Run hill climbing with restarts
+# hillClimbingWithRestarts(execute('export'))
+
 # Run hill climbing starting from the initial state
 hillClimbing(execute('export'))
+print('completed hill climbing')
 
 ########################################
 
