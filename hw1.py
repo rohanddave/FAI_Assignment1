@@ -71,8 +71,6 @@ YOUR CODE HERE
 
 '''
 
-didFindSolution = False
-
 # Objective function helpers
 def calculateConflictPenalty(grid):
     rows = len(grid)
@@ -116,7 +114,7 @@ def getEmptyCellCount(grid):
 # objective function
 def calculateObjectiveFunction(grid, shapes):
     # Coefficients for penalties (adjust if needed)
-    lambda1, lambda2, lambda3, lambda4 = 50, 8, 2, 1000
+    lambda1, lambda2, lambda3, lambda4 = 50, 40, 35, 1000
     return (lambda1 * calculateConflictPenalty(grid) +
             lambda2 * calculateDistinctColors(grid) +
             lambda3 * len(shapes) + 
@@ -146,8 +144,44 @@ def moveToCell(goalX, goalY):
             currentY -= 1
             execute('left')
 
+def countSurroundingEmptyCells(grid, m, n):
+    empty_count = 0
+    rows = len(grid)
+    cols = len(grid[0])
+
+    # Define the bounds of the 7x7 rectangle centered at (m, n)
+    for i in range(m - 3, m + 4):  # 3 cells in each direction
+        for j in range(n - 3, n + 4):  # 3 cells in each direction
+            # Ensure we don't go out of bounds
+            if 0 <= i < rows and 0 <= j < cols:
+                if grid[i][j] == -1:
+                    empty_count += 1
+
+    return empty_count
+
 def getRandomShape():
-    return np.random.choice(len(shapes))
+    shapePos, _, _, grid, _, _ = execute('export')
+    emptyCells = countSurroundingEmptyCells(grid, shapePos[0], shapePos[1])
+    totalCells = len(grid) * len(grid[0])
+
+    # ones_count = [np.count_nonzero(shape == 1) for shape in shapes]
+    shapeSize = [1, 2, 2, 4, 4, 4, 4, 3, 3]
+
+    weights = [
+    (abs(shapeSize[i] - emptyCells)) if (emptyCells >= shapeSize[i]) else 0 
+    for i in range(len(shapes))
+    ]
+
+    total_weight = sum(weights)
+
+    if total_weight == 0:
+        return np.random.choice(len(shapes))
+    
+    probabilities = [w / total_weight for w in weights]
+
+    return np.random.choice(len(shapes), p=probabilities)
+# def getRandomShape():
+#     return np.random.choice(len(shapes))
 
 def switchToShape(goalShapeIndex):
     while True:
@@ -232,8 +266,10 @@ def hillClimbing(s):
             current = execute('export')  
 
 
-print(hillClimbing(execute('export')))
+s = hillClimbing(execute('export'))
+_, _, _, solutionGrid, solutionPlacedShapes, _ = s
 print("FOUND SOLUTION!!!!!")
+print(calculateObjectiveFunction(solutionGrid, solutionPlacedShapes))
 ########################################
 
 # Do not modify any of the code below. 
