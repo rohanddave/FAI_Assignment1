@@ -114,7 +114,7 @@ def getEmptyCellCount(grid):
 # objective function
 def calculateObjectiveFunction(grid, shapes):
     # Coefficients for penalties (adjust if needed)
-    lambda1, lambda2, lambda3, lambda4 = 10000, 20, 20, 1000
+    lambda1, lambda2, lambda3, lambda4 = 10000, 2, 1, 1000
     return (lambda1 * calculateConflictPenalty(grid) +
             lambda2 * calculateDistinctColors(grid) +
             lambda3 * len(shapes) + 
