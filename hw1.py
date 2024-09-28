@@ -13,7 +13,7 @@ from gridgame import *
 
 ##############################################################################################################################
 
-gridSize = 5
+gridSize = 10
 setup(GUI = False, render_delay_sec = 0.001, gs = gridSize)
 
 
