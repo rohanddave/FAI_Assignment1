@@ -13,8 +13,7 @@ from gridgame import *
 
 ##############################################################################################################################
 
-gridSize = 10
-setup(GUI = False, render_delay_sec = 0.001, gs = gridSize)
+setup(GUI = False, render_delay_sec = 0.001, gs = 10)
 
 
 ##############################################################################################################################
@@ -124,7 +123,7 @@ def calculateObjectiveFunction(grid, shapes):
             lambda4 * getEmptyCellCount(grid))
 
 def moveToCell(goalX, goalY):
-    if 0 > goalX >= gridSize or 0 > goalY >= gridSize:
+    if 0 > goalX >= len(grid) or 0 > goalY >= len(grid[0]):
         return
     
     shapePos, _, _, _, _, _ = execute('export')
@@ -154,7 +153,6 @@ def switchToShape(goalShapeIndex):
     while True:
         _, currentShapeIndex, _, _, _, _ = execute('export')
         if currentShapeIndex == goalShapeIndex: 
-            print('reached goal shape')
             return 
         execute('switchshape')
 
@@ -162,7 +160,6 @@ def switchToColor(goalColorIndex):
     while True:
         _, _, currentColorIndex, _, _, _ = execute('export')
         if currentColorIndex == goalColorIndex: 
-            print('reached goal color') 
             return 
         execute('switchcolor')
 
@@ -185,18 +182,15 @@ def getRandomNeighbor(s):
 
     while attempts < max_attempts:
         i, j = getRandomEmptyPosition()
-        # print('got random position')
         # move to position 
         moveToCell(i, j)
 
         # get current grid and bursh position
         shapePos, _, _, grid, _, _ = execute('export')
-        # print('got current state')
 
         randomColorIndex = getAvailableColor(grid, shapePos[1], shapePos[0])
         randomShapeIndex = 0 if attempts == max_attempts - 1 else getRandomShape()
-        # print('random color: ' + str(randomColorIndex))
-        # print('random shape index: ' + str(randomShapeIndex))
+        
         # switch to random shape in env
         switchToShape(randomShapeIndex)
 
@@ -204,11 +198,9 @@ def getRandomNeighbor(s):
         switchToColor(randomColorIndex)
 
         if canPlace(grid, shapes[randomShapeIndex], shapePos):
-            print('printing result of place')
-            print(execute('place'))
+            execute('place')
             return execute('export')
         else:
-            print('cannot place this neighbor')
             attempts += 1
     return s
 
@@ -221,26 +213,21 @@ def hillClimbing(s):
         current_value = calculateObjectiveFunction(grid, placedShapes)
 
         if getEmptyCellCount(grid) == 0:
-            print('found solution ')
             return current
         
         # print("trying to get a random neighbor")
         neighbor = getRandomNeighbor(current)
         
-        # print('got a random neighbor')
         _, _, _, neighbor_grid, neighbor_placed_shapes, _ = neighbor
 
         if getEmptyCellCount(neighbor_grid) == 0: 
-            print('neighbor is solution')
             return neighbor
         
         neighbor_value = calculateObjectiveFunction(neighbor_grid, neighbor_placed_shapes)
 
         if neighbor_value < current_value:
-            print('neighbor improves objective function: accept as solution')
             current = execute('export')
         else:
-            print('neighbor worsens objective function: backtrack')
             execute('undo')
             current = execute('export')  
 
