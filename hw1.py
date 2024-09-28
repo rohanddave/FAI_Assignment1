@@ -13,7 +13,7 @@ from gridgame import *
 
 ##############################################################################################################################
 
-setup(GUI = False, render_delay_sec = 0.001, gs = 10)
+setup(GUI = True, render_delay_sec = 0.001, gs = 10)
 
 
 ##############################################################################################################################
@@ -114,7 +114,7 @@ def getEmptyCellCount(grid):
 # objective function
 def calculateObjectiveFunction(grid, shapes):
     # Coefficients for penalties (adjust if needed)
-    lambda1, lambda2, lambda3, lambda4 = 50, 40, 35, 1000
+    lambda1, lambda2, lambda3, lambda4 = 10000, 40, 35, 1000
     return (lambda1 * calculateConflictPenalty(grid) +
             lambda2 * calculateDistinctColors(grid) +
             lambda3 * len(shapes) + 
